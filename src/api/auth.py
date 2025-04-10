@@ -22,6 +22,21 @@ hash_handler = Hash()
     "/register", response_model=TokenModel, status_code=status.HTTP_201_CREATED
 )
 async def signup(body: UserCreate, db: AsyncSession = Depends(get_db)):
+    """
+    Register a new user.
+
+    Creates a new user account and returns authentication tokens.
+
+    Args:
+        body: User registration data
+        db: Database session
+
+    Returns:
+        TokenModel: Access and refresh tokens
+
+    Raises:
+        HTTPException: If username or email already exists
+    """
     user_service = UserService(db)
 
     exist_user = await user_service.get_user_by_email(body.email)
@@ -52,6 +67,21 @@ async def signup(body: UserCreate, db: AsyncSession = Depends(get_db)):
 async def login(
     body: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)
 ):
+    """
+    Authenticate a user and issue tokens.
+
+    Validates credentials and returns access and refresh tokens.
+
+    Args:
+        body: Login credentials
+        db: Database session
+
+    Returns:
+        TokenModel: Access and refresh tokens
+
+    Raises:
+        HTTPException: If credentials are invalid
+    """
     user_service = UserService(db)
 
     user = await user_service.get_user_by_username(body.username)
@@ -79,6 +109,21 @@ async def login(
 
 @router.post("/refresh-token", response_model=TokenModel)
 async def new_token(request: TokenRefreshRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Get a new access token using a refresh token.
+
+    Validates refresh token and issues a new access token.
+
+    Args:
+        request: Refresh token request
+        db: Database session
+
+    Returns:
+        TokenModel: New access token and existing refresh token
+
+    Raises:
+        HTTPException: If refresh token is invalid or expired
+    """
     user_service = UserService(db)
 
     user = await user_service.verify_refresh_token(request.refresh_token)

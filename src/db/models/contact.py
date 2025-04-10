@@ -8,6 +8,22 @@ from src.db.models.base import Base
 
 
 class Contact(Base):
+    """
+    Contact model for storing contact information.
+
+    Represents a person's contact details associated with a specific user.
+
+    Attributes:
+        id: Unique identifier for the contact
+        first_name: Contact's first name
+        last_name: Contact's last name
+        phone: Contact's phone number
+        email: Contact's email address
+        date_of_birth: Contact's birthday
+        user_id: Foreign key referencing the user who owns this contact
+        user: Relationship to the User model
+    """
+
     __tablename__ = "contacts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

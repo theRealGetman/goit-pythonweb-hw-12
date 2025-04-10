@@ -1,3 +1,10 @@
+"""
+Main application entry point.
+
+This module initializes the FastAPI application, configures middleware,
+and includes all API routers.
+"""
+
 from ipaddress import ip_address
 import re
 from typing import Callable
@@ -35,6 +42,16 @@ user_agent_ban_list = [
 
 @app.middleware("http")
 async def ban_ips(request: Request, call_next: Callable):
+    """
+    Middleware to block banned IP addresses and user agents.
+
+    Args:
+        request: Incoming request
+        call_next: Next middleware or route handler
+
+    Returns:
+        Response: Error response if banned, otherwise normal response
+    """
     ip = ip_address(request.client.host)
     if ip in banned_ips:
         return JSONResponse(
@@ -56,6 +73,16 @@ async def ban_ips(request: Request, call_next: Callable):
 
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    """
+    Exception handler for rate limit exceeded errors.
+
+    Args:
+        request: Incoming request
+        exc: Rate limit exception
+
+    Returns:
+        JSONResponse: Error response with 429 status code
+    """
     return JSONResponse(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         content={"error": "Too many requests. Please try again later."},

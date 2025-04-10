@@ -1,8 +1,29 @@
+"""
+Application configuration settings.
+
+This module defines application configuration settings loaded from environment variables.
+"""
+
 from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
+    """
+    Application settings loaded from environment variables.
+
+    Attributes:
+        DB_URL: Database connection URL
+        JWT_SECRET: Secret key for JWT token signing
+        JWT_ALGORITHM: Algorithm used for JWT token signing
+        JWT_EXPIRATION_SECONDS: Access token expiration time in seconds
+        JWT_REFRESH_EXPIRATION_SECONDS: Refresh token expiration time in seconds
+        CLD_NAME: Cloudinary cloud name
+        CLD_API_KEY: Cloudinary API key
+        CLD_API_SECRET: Cloudinary API secret
+        CLD_URL: Cloudinary URL
+    """
+
     DB_URL: str
 
     JWT_SECRET: str

@@ -15,12 +15,37 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
 class Hash:
+    """
+    Utility class for password hashing and verification.
+
+    Uses bcrypt for secure password handling.
+    """
+
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
     def verify_password(self, plain_password, hashed_password):
+        """
+        Verify a password against a hash.
+
+        Args:
+            plain_password: Plain text password to verify
+            hashed_password: Hashed password to verify against
+
+        Returns:
+            bool: True if password matches, False otherwise
+        """
         return self.pwd_context.verify(plain_password, hashed_password)
 
     def get_password_hash(self, password: str):
+        """
+        Generate a password hash.
+
+        Args:
+            password: Plain text password to hash
+
+        Returns:
+            str: Hashed password
+        """
         return self.pwd_context.hash(password)
 
 
@@ -29,6 +54,17 @@ def create_token(
     expires_delta: timedelta,
     token_type: Literal["access", "refresh"],
 ):
+    """
+    Create a JWT token.
+
+    Args:
+        data: Data to encode in the token
+        expires_delta: Token expiration time
+        token_type: Type of token ("access" or "refresh")
+
+    Returns:
+        str: Encoded JWT token
+    """
     to_encode = data.copy()
     now = datetime.now(UTC)
     expire = now + expires_delta
@@ -40,6 +76,16 @@ def create_token(
 
 
 async def create_access_token(data: dict, expires_delta: Optional[float] = None) -> str:
+    """
+    Create a JWT access token.
+
+    Args:
+        data: Data to encode in the token
+        expires_delta: Optional custom expiration time
+
+    Returns:
+        str: Encoded JWT access token
+    """
     if expires_delta:
         access_token = create_token(data, expires_delta, "access")
     else:
@@ -50,6 +96,16 @@ async def create_access_token(data: dict, expires_delta: Optional[float] = None)
 
 
 async def create_refresh_token(data: dict, expires_delta: Optional[float] = None):
+    """
+    Create a JWT refresh token.
+
+    Args:
+        data: Data to encode in the token
+        expires_delta: Optional custom expiration time
+
+    Returns:
+        str: Encoded JWT refresh token
+    """
     if expires_delta:
         refresh_token = create_token(data, expires_delta, "refresh")
     else:
@@ -62,6 +118,19 @@ async def create_refresh_token(data: dict, expires_delta: Optional[float] = None
 async def get_current_user(
     token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)
 ):
+    """
+    Get the current authenticated user from JWT token.
+
+    Args:
+        token: JWT token from authorization header
+        db: Database session
+
+    Returns:
+        User: Current authenticated user
+
+    Raises:
+        HTTPException: If token is invalid or user not found
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
