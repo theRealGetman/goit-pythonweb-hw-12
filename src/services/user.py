@@ -191,3 +191,29 @@ class UserService:
             User | None: Updated user if successful, None otherwise
         """
         return await self.repository.reset_password(email, new_password)
+
+    async def change_user_role(self, user_id: int, role: str) -> User | None:
+        """
+        Change a user's role.
+
+        Args:
+            user_id: ID of user to update
+            role: New role to assign
+
+        Returns:
+            User | None: Updated user if successful, None otherwise
+        """
+        return await self.repository.change_user_role(user_id, role)
+
+    async def create_admin(self, body: UserCreate) -> User:
+        """
+        Create a new admin user.
+
+        Args:
+            body: User creation data
+
+        Returns:
+            User: Newly created admin user
+        """
+
+        return await self.repository.create_admin(body)

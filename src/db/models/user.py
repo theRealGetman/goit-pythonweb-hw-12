@@ -1,9 +1,16 @@
 from datetime import date
 from typing import Optional
-from sqlalchemy import DateTime, Integer, String, func
+from sqlalchemy import DateTime, Enum, Integer, String, func
 from sqlalchemy.orm import mapped_column, Mapped
 
 from src.db.models.base import Base
+
+
+class UserRole(str, Enum):
+    """User roles for permission system."""
+
+    USER = "user"
+    ADMIN = "admin"
 
 
 class User(Base):
@@ -20,6 +27,7 @@ class User(Base):
         created_at: Timestamp when user account was created
         avatar: URL to user's profile picture
         refresh_token: JWT refresh token for authentication
+        role: User role (admin or user)
     """
 
     __tablename__ = "users"
@@ -30,3 +38,11 @@ class User(Base):
     created_at: Mapped[date] = mapped_column(DateTime, default=func.now())
     avatar: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     refresh_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    role: Mapped[str] = mapped_column(
+        String(50),
+        default=UserRole.USER,
+    )
+
+    def is_admin(self):
+        """Check if user has admin role."""
+        return self.role == UserRole.ADMIN

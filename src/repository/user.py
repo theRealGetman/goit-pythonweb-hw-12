@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.schemas.user import UserCreate
-from src.db.models.user import User
+from src.db.models.user import User, UserRole
 
 
 class UserRepository:
@@ -189,4 +189,43 @@ class UserRepository:
             user.hashed_password = new_password
             await self.session.commit()
             await self.session.refresh(user)
+        return user
+
+    async def change_user_role(self, user_id: int, role: str) -> User | None:
+        """
+        Change a user's role.
+
+        Args:
+            user_id: ID of user to update
+            role: New role to assign
+
+        Returns:
+            User | None: Updated user if successful, None otherwise
+        """
+        user = await self.get_user_by_id(user_id)
+        if user:
+            user.role = role
+            await self.session.commit()
+            await self.session.refresh(user)
+        return user
+
+    async def create_admin(self, body: UserCreate) -> User:
+        """
+        Create a new admin user.
+
+        Args:
+            body: User creation data
+
+        Returns:
+            User: Newly created admin user
+        """
+        user = User(
+            username=body.username,
+            email=body.email,
+            hashed_password=body.password,
+            role=UserRole.ADMIN,
+        )
+        self.session.add(user)
+        await self.session.commit()
+        await self.session.refresh(user)
         return user

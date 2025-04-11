@@ -7,7 +7,7 @@ from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 import secrets
 
-from src.db.models.user import User
+from src.db.models.user import User, UserRole
 from src.services.redis import RedisService, get_redis_service
 from src.services.user import UserService
 from src.db.db import get_db
@@ -166,6 +166,7 @@ async def get_current_user(
                 created_at=datetime.fromisoformat(user_dict["created_at"]),
                 avatar=user_dict.get("avatar"),
                 refresh_token=user_dict.get("refresh_token"),
+                role=user_dict.get("role", "user"),
             )
             return user
 
@@ -221,3 +222,48 @@ async def verify_password_reset_token(token: str) -> dict | None:
         return payload
     except jwt.JWTError:
         return None
+
+
+async def get_current_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    Get the current user and verify they have admin rights.
+
+    Args:
+        current_user: Current authenticated user from token
+
+    Returns:
+        User: Current authenticated admin user
+
+    Raises:
+        HTTPException: If user is not an admin
+    """
+    if not current_user.is_admin():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions",
+        )
+    return current_user
+
+
+def has_role(role: UserRole):
+    """
+    Create a dependency to check if user has specific role.
+
+    Args:
+        role: Required role
+
+    Returns:
+        Callable: Dependency function that checks user role
+    """
+
+    async def role_checker(current_user: User = Depends(get_current_user)):
+        if current_user.role != role:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Role {role} required",
+            )
+        return current_user
+
+    return role_checker

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
@@ -51,6 +51,7 @@ class UserResponse(UserBase):
     email: str
     avatar: Optional[str]
     created_at: datetime
+    role: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -70,3 +71,15 @@ class UserUpdate(BaseModel):
     username: Optional[str] = Field(min_length=5, max_length=16, default=None)
     email: Optional[EmailStr] = None
     password: Optional[str] = Field(min_length=6, max_length=10, default=None)
+
+
+class RoleUpdate(BaseModel):
+    """
+    Schema for updating a user's role.
+
+    Attributes:
+        role: New role to assign (must be 'user' or 'admin')
+    """
+
+    # Use Literal type to restrict values to exact strings
+    role: Literal["user", "admin"]

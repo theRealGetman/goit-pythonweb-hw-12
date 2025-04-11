@@ -134,6 +134,7 @@ async def login(
         "created_at": user.created_at.isoformat(),
         "avatar": user.avatar,
         "refresh_token": refresh_token,
+        "role": user.role,
     }
     await redis_service.set(
         cache_key, user_dict, expire=settings.REDIS_USER_CACHE_EXPIRE
