@@ -15,6 +15,7 @@ from fastapi import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.services.redis import RedisService, get_redis_service
 from src.db.db import get_db
 from src.db.models.user import User
 from src.schemas.user import UserResponse
@@ -75,6 +76,7 @@ async def update_avatar(
     file: UploadFile = File(),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    redis_service: RedisService = Depends(get_redis_service),
 ):
     """
     Update the authenticated user's avatar.
@@ -112,6 +114,11 @@ async def update_avatar(
         updated_user = await user_service.update_avatar_url(
             current_user.email, upload_result["secure_url"]
         )
+
+        # Invalidate cache for this user
+        cache_key = f"user:{current_user.username}"
+        await redis_service.delete(cache_key)
+
         return updated_user
     except Exception as e:
         raise HTTPException(

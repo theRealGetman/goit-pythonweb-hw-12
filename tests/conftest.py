@@ -1,5 +1,4 @@
 import asyncio
-from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
@@ -7,30 +6,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
+from src.services.redis import get_redis_service
 from src.db.models.base import Base
 from src.db.models.user import User
 from main import app
 from src.db.db import get_db
 from src.services.auth import create_access_token, Hash
-
-
-# class MockSettings:
-#     DB_URL = "sqlite+aiosqlite:///./test.db"
-#     JWT_SECRET = "test_secret_key"
-#     JWT_ALGORITHM = "HS256"
-#     ACCESS_TOKEN_EXPIRE_MINUTES = 30
-#     REFRESH_TOKEN_EXPIRE_DAYS = 7
-#     CLD_NAME = "test_cloudinary"
-#     CLD_API_KEY = "test_api_key"
-#     CLD_API_SECRET = "test_api_secret"
-#     CLD_URL = "http://test.cloudinary.com"
-
-
-# @pytest.fixture(scope="session", autouse=True)
-# def patch_settings():
-#     with patch("src.config.config.Settings", return_value=MockSettings()):
-#         with patch("src.config.config.settings", MockSettings()):
-#             yield
 
 
 SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
@@ -50,6 +31,25 @@ test_user = {
     "email": "deadpool@example.com",
     "password": "12345678",
 }
+
+
+# Mock Redis service
+class MockRedisService:
+    def __init__(self):
+        self.cache = {}
+
+    async def get(self, key):
+        return self.cache.get(key)
+
+    async def set(self, key, value, expire=None):
+        self.cache[key] = value
+
+    async def delete(self, key):
+        if key in self.cache:
+            del self.cache[key]
+
+    async def flush(self):
+        self.cache.clear()
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -75,6 +75,7 @@ def init_models_wrap():
 @pytest.fixture(scope="module")
 def client():
     # Dependency override
+    redis_service = MockRedisService()
 
     async def override_get_db():
         async with TestingSessionLocal() as session:
@@ -84,10 +85,16 @@ def client():
                 await session.rollback()
                 raise
 
+    def override_get_redis_service():
+        return redis_service
+
+    app.dependency_overrides[get_redis_service] = override_get_redis_service
     app.dependency_overrides[get_db] = override_get_db
+
     test_client = TestClient(app, client=("127.0.0.1", 50000))
 
     yield test_client
+    
     app.dependency_overrides.clear()
 
 

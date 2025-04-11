@@ -8,12 +8,15 @@ from fastapi import (
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.db.models.user import User
+from src.services.redis import RedisService, get_redis_service
 from src.schemas.user import UserCreate
 from src.services.auth import (
     Hash,
     create_access_token,
     create_password_reset_token,
     create_refresh_token,
+    get_current_user,
     verify_password_reset_token,
 )
 from src.schemas.token import (
@@ -24,6 +27,7 @@ from src.schemas.token import (
 )
 from src.services.user import UserService
 from src.db.db import get_db
+from src.config.config import settings
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -31,9 +35,15 @@ hash_handler = Hash()
 
 
 @router.post(
-    "/register", response_model=TokenModel, status_code=status.HTTP_201_CREATED
+    "/register",
+    response_model=TokenModel,
+    status_code=status.HTTP_201_CREATED,
 )
-async def signup(body: UserCreate, db: AsyncSession = Depends(get_db)):
+async def signup(
+    body: UserCreate,
+    db: AsyncSession = Depends(get_db),
+    redis_service: RedisService = Depends(get_redis_service),
+):
     """
     Register a new user.
 
@@ -72,12 +82,15 @@ async def signup(body: UserCreate, db: AsyncSession = Depends(get_db)):
     return await login(
         body=OAuth2PasswordRequestForm(username=body.username, password=password),
         db=db,
+        redis_service=redis_service,
     )
 
 
 @router.post("/login", response_model=TokenModel)
 async def login(
-    body: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)
+    body: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_db),
+    redis_service: RedisService = Depends(get_redis_service),
 ):
     """
     Authenticate a user and issue tokens.
@@ -110,6 +123,21 @@ async def login(
     access_token = await create_access_token(data={"sub": user.username})
     refresh_token = await create_refresh_token(data={"sub": user.username})
     await user_service.save_refresh_token(body=user, refresh_token=refresh_token)
+
+    # Cache user in Redis
+    cache_key = f"user:{user.username}"
+    user_dict = {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "hashed_password": user.hashed_password,
+        "created_at": user.created_at.isoformat(),
+        "avatar": user.avatar,
+        "refresh_token": refresh_token,
+    }
+    await redis_service.set(
+        cache_key, user_dict, expire=settings.REDIS_USER_CACHE_EXPIRE
+    )
 
     return {
         "access_token": access_token,
@@ -200,7 +228,9 @@ async def request_password_reset(
 
 @router.post("/reset-password/confirm", status_code=status.HTTP_200_OK)
 async def confirm_password_reset(
-    body: PasswordResetConfirm, db: AsyncSession = Depends(get_db)
+    body: PasswordResetConfirm,
+    db: AsyncSession = Depends(get_db),
+    redis_service: RedisService = Depends(get_redis_service),
 ):
     """
     Complete the password reset process.
@@ -237,4 +267,39 @@ async def confirm_password_reset(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
+    # Invalidate cache for this user
+    cache_key = f"user:{user.username}"
+    await redis_service.delete(cache_key)
+
     return {"message": "Password has been reset successfully"}
+
+
+@router.post("/logout")
+async def logout(
+    current_user: User = Depends(get_current_user),
+    redis_service: RedisService = Depends(get_redis_service),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Log out the current user.
+
+    Clears the user's refresh token in the database and removes the user from Redis cache.
+
+    Args:
+        current_user: Currently authenticated user
+        redis_service: Redis caching service
+        db: Database session
+
+    Returns:
+        dict: Success message
+    """
+    # Clear refresh token in database
+    user_service = UserService(db)
+    current_user.refresh_token = None
+    await user_service.save_refresh_token(current_user, None)
+
+    # Remove user from Redis cache
+    cache_key = f"user:{current_user.username}"
+    await redis_service.delete(cache_key)
+
+    return {"message": "Successfully logged out"}

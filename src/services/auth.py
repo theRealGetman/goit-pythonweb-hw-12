@@ -7,6 +7,8 @@ from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 import secrets
 
+from src.db.models.user import User
+from src.services.redis import RedisService, get_redis_service
 from src.services.user import UserService
 from src.db.db import get_db
 from src.config.config import settings
@@ -117,7 +119,9 @@ async def create_refresh_token(data: dict, expires_delta: Optional[float] = None
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+    redis_service: RedisService = Depends(get_redis_service),
 ):
     """
     Get the current authenticated user from JWT token.
@@ -146,15 +150,34 @@ async def get_current_user(
         username = payload["sub"]
         if username is None:
             raise credentials_exception
+
+        # Check if user is in Redis cache
+        cache_key = f"user:{username}"
+        cached_user = await redis_service.get(cache_key)
+
+        if cached_user:
+            # Convert cached dictionary to User model
+            user_dict = cached_user
+            user = User(
+                id=user_dict["id"],
+                username=user_dict["username"],
+                email=user_dict["email"],
+                hashed_password=user_dict["hashed_password"],
+                created_at=datetime.fromisoformat(user_dict["created_at"]),
+                avatar=user_dict.get("avatar"),
+                refresh_token=user_dict.get("refresh_token"),
+            )
+            return user
+
+        user_service = UserService(db)
+        user = await user_service.get_user_by_username(username)
+        if user is None:
+            raise credentials_exception
+
+        return user
+
     except JWTError:
         raise credentials_exception
-
-    user_service = UserService(db)
-    user = await user_service.get_user_by_username(username)
-    if user is None:
-        raise credentials_exception
-
-    return user
 
 
 async def create_password_reset_token(data: dict) -> str:
