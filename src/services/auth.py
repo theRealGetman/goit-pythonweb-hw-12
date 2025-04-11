@@ -1,10 +1,11 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Literal, Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
+import secrets
 
 from src.services.user import UserService
 from src.db.db import get_db
@@ -154,3 +155,46 @@ async def get_current_user(
         raise credentials_exception
 
     return user
+
+
+async def create_password_reset_token(data: dict) -> str:
+    """
+    Create a password reset token.
+
+    Args:
+        data: Data to encode in the token (should include user email)
+
+    Returns:
+        str: Password reset token
+    """
+    # Add a unique salt to the token to prevent reuse
+    salt = secrets.token_hex(8)
+    encoded_data = data.copy()
+    encoded_data["salt"] = salt
+    encoded_data["token_type"] = "password_reset"
+    encoded_data["exp"] = datetime.now(timezone.utc) + timedelta(hours=1)
+
+    return jwt.encode(
+        encoded_data, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM
+    )
+
+
+async def verify_password_reset_token(token: str) -> dict | None:
+    """
+    Verify a password reset token.
+
+    Args:
+        token: Password reset token
+
+    Returns:
+        dict | None: Token payload if valid, None otherwise
+    """
+    try:
+        payload = jwt.decode(
+            token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
+        )
+        if payload.get("token_type") != "password_reset" or "email" not in payload:
+            return None
+        return payload
+    except jwt.JWTError:
+        return None

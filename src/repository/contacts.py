@@ -165,5 +165,7 @@ class ContactRepository:
                 func.current_date() + timedelta(days=days),
             ),
         )
+        print("stmt: ", stmt)
         contacts = await self.session.execute(stmt)
+        print("contacts: ", contacts.scalars().all())
         return contacts.scalars().all()

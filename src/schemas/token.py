@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 
 
 class TokenModel(BaseModel):
@@ -29,3 +29,31 @@ class TokenRefreshRequest(BaseModel):
     """
 
     refresh_token: str = Field(..., description="JWT refresh token")
+
+
+class PasswordResetRequest(BaseModel):
+    """
+    Password reset request model.
+
+    Contains email for which to reset password.
+
+    Attributes:
+        email: Email address of the user requesting password reset
+    """
+
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    """
+    Password reset confirmation model.
+
+    Contains token and new password.
+
+    Attributes:
+        token: Token received for password reset
+        password: New password to set
+    """
+
+    token: str
+    password: str = Field(min_length=6, max_length=10)

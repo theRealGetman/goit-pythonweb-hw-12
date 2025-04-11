@@ -178,3 +178,16 @@ class UserService:
             User: Updated user if successful, None otherwise
         """
         return await self.repository.update_avatar_url(email, avatar_url)
+
+    async def update_password(self, email: str, new_password: str) -> User | None:
+        """
+        Update user password.
+
+        Args:
+            email: User email
+            new_password: New password (already hashed)
+
+        Returns:
+            User | None: Updated user if successful, None otherwise
+        """
+        return await self.repository.reset_password(email, new_password)

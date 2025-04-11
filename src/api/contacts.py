@@ -20,6 +20,28 @@ from src.services.contacts import ContactService
 router = APIRouter(prefix="/contacts", tags=["contacts"])
 
 
+@router.get("/birthdays", response_model=List[ContactResponse])
+async def upcoming_birthdays(
+    days: int = Query(7, ge=1, le=365),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Retrieve contacts with birthdays in the next specified number of days.
+
+    Args:
+        days: Number of days to check for upcoming birthdays
+        db: Database session
+        current_user: Currently authenticated user
+
+    Returns:
+        List[ContactResponse]: List of contacts with upcoming birthdays
+    """
+    contact_service = ContactService(db)
+    contacts = await contact_service.get_birthdays(days, current_user)
+    return contacts
+
+
 @router.get("/", response_model=List[ContactResponse])
 async def read_contacts(
     skip: int = Query(0, ge=0),
@@ -161,25 +183,3 @@ async def delete_contact(
             detail="Contact not found",
         )
     return contact
-
-
-@router.get("/birthdays/", response_model=List[ContactResponse])
-async def upcoming_birthdays(
-    days: int = Query(7, ge=1, le=365),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Retrieve contacts with birthdays in the next specified number of days.
-
-    Args:
-        days: Number of days to check for upcoming birthdays
-        db: Database session
-        current_user: Currently authenticated user
-
-    Returns:
-        List[ContactResponse]: List of contacts with upcoming birthdays
-    """
-    contact_service = ContactService(db)
-    contacts = await contact_service.get_birthdays(days, current_user)
-    return contacts
